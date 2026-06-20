@@ -164,7 +164,9 @@ jobs:
       - name: Create release archive
         shell: bash
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
+          # GITHUB_REF_NAME is the tag on a release (v1.2.3) and the branch on
+          # a workflow_dispatch dry run (main); both are free of slashes.
+          VERSION="${GITHUB_REF_NAME}"
           ARCHIVE_NAME="dotpick-${VERSION}-${{ matrix.target }}"
 
           if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
