@@ -11,6 +11,30 @@
 use crate::error::DotpickError;
 use crate::path::{Path, Segment};
 use serde_json::{Map, Value};
+use std::collections::BTreeMap;
+
+/// A sparse intermediate used while pruning so that array positions survive the
+/// merging of separately-selected indices (`.items[0].a,.items[1].b` must keep
+/// element 0 and element 1 distinct). Compacted to a `Value` at the very end,
+/// dropping unselected indices while preserving relative order.
+enum Slice {
+    /// A fully-selected subtree, copied verbatim.
+    Leaf(Value),
+    Object(BTreeMap<String, Slice>),
+    Array(BTreeMap<usize, Slice>),
+}
+
+impl Slice {
+    fn into_value(self) -> Value {
+        match self {
+            Slice::Leaf(v) => v,
+            Slice::Object(m) => {
+                Value::Object(m.into_iter().map(|(k, s)| (k, s.into_value())).collect())
+            }
+            Slice::Array(m) => Value::Array(m.into_values().map(Slice::into_value).collect()),
+        }
+    }
+}
 
 /// Human-readable type name for error messages.
 pub fn type_name(v: &Value) -> &'static str {
@@ -35,7 +59,7 @@ pub fn structured(
     paths: &[Path],
     allow_missing: bool,
 ) -> Result<Value, DotpickError> {
-    let mut acc: Option<Value> = None;
+    let mut acc: Option<Slice> = None;
     for p in paths {
         if let Some(pruned) = prune(root, &p.segments, &p.display, allow_missing)? {
             acc = Some(match acc {
@@ -44,7 +68,7 @@ pub fn structured(
             });
         }
     }
-    Ok(acc.unwrap_or(Value::Null))
+    Ok(acc.map(Slice::into_value).unwrap_or(Value::Null))
 }
 
 /// Flat projection: an object mapping each path's leaf name to its value.
@@ -88,24 +112,24 @@ pub fn select_all(
     Ok(out)
 }
 
-/// Prune `root` to the single path, preserving structure.
+/// Prune `root` to the single path, preserving structure as a [`Slice`].
 /// Returns `None` when the path is absent and `allow_missing` is set.
 fn prune(
     root: &Value,
     segs: &[Segment],
     display: &str,
     allow_missing: bool,
-) -> Result<Option<Value>, DotpickError> {
+) -> Result<Option<Slice>, DotpickError> {
     let Some((head, rest)) = segs.split_first() else {
-        return Ok(Some(root.clone()));
+        return Ok(Some(Slice::Leaf(root.clone())));
     };
     match head {
         Segment::Key(k) => match root {
             Value::Object(m) => match m.get(k) {
-                Some(child) => Ok(prune(child, rest, display, allow_missing)?.map(|p| {
-                    let mut obj = Map::new();
-                    obj.insert(k.clone(), p);
-                    Value::Object(obj)
+                Some(child) => Ok(prune(child, rest, display, allow_missing)?.map(|s| {
+                    let mut obj = BTreeMap::new();
+                    obj.insert(k.clone(), s);
+                    Slice::Object(obj)
                 })),
                 None if allow_missing => Ok(None),
                 None => Err(DotpickError::PathNotFound {
@@ -117,9 +141,11 @@ fn prune(
         },
         Segment::Index(i) => match root {
             Value::Array(a) => match a.get(*i) {
-                Some(child) => {
-                    Ok(prune(child, rest, display, allow_missing)?.map(|p| Value::Array(vec![p])))
-                }
+                Some(child) => Ok(prune(child, rest, display, allow_missing)?.map(|s| {
+                    let mut arr = BTreeMap::new();
+                    arr.insert(*i, s);
+                    Slice::Array(arr)
+                })),
                 None if allow_missing => Ok(None),
                 None => Err(DotpickError::PathNotFound {
                     path: display.to_string(),
@@ -130,13 +156,13 @@ fn prune(
         },
         Segment::Iter => match root {
             Value::Array(a) => {
-                let mut out = Vec::new();
-                for el in a {
-                    if let Some(p) = prune(el, rest, display, allow_missing)? {
-                        out.push(p);
+                let mut arr = BTreeMap::new();
+                for (idx, el) in a.iter().enumerate() {
+                    if let Some(s) = prune(el, rest, display, allow_missing)? {
+                        arr.insert(idx, s);
                     }
                 }
-                Ok(Some(Value::Array(out)))
+                Ok(Some(Slice::Array(arr)))
             }
             other => mismatch(allow_missing, display, "an array", other),
         },
@@ -194,7 +220,7 @@ fn mismatch(
     display: &str,
     expected: &str,
     found: &Value,
-) -> Result<Option<Value>, DotpickError> {
+) -> Result<Option<Slice>, DotpickError> {
     if allow_missing {
         Ok(None)
     } else {
@@ -223,34 +249,34 @@ fn mismatch_vec(
     }
 }
 
-/// Deep merge of two pruned values that came from the same root.
-fn merge(a: Value, b: Value) -> Value {
+/// Deep merge of two pruned slices that came from the same root. Objects merge
+/// by key and arrays merge by true index, so separately-selected positions stay
+/// aligned.
+fn merge(a: Slice, b: Slice) -> Slice {
     match (a, b) {
-        (Value::Object(mut ma), Value::Object(mb)) => {
-            for (k, vb) in mb {
+        (Slice::Object(mut ma), Slice::Object(mb)) => {
+            for (k, sb) in mb {
                 let merged = match ma.remove(&k) {
-                    Some(va) => merge(va, vb),
-                    None => vb,
+                    Some(sa) => merge(sa, sb),
+                    None => sb,
                 };
                 ma.insert(k, merged);
             }
-            Value::Object(ma)
+            Slice::Object(ma)
         }
-        (Value::Array(aa), Value::Array(ba)) => {
-            let mut a_it = aa.into_iter();
-            let mut b_it = ba.into_iter();
-            let mut out = Vec::new();
-            loop {
-                match (a_it.next(), b_it.next()) {
-                    (Some(x), Some(y)) => out.push(merge(x, y)),
-                    (Some(x), None) => out.push(x),
-                    (None, Some(y)) => out.push(y),
-                    (None, None) => break,
-                }
+        (Slice::Array(mut ma), Slice::Array(mb)) => {
+            for (i, sb) in mb {
+                let merged = match ma.remove(&i) {
+                    Some(sa) => merge(sa, sb),
+                    None => sb,
+                };
+                ma.insert(i, merged);
             }
-            Value::Array(out)
+            Slice::Array(ma)
         }
-        // Disjoint leaves: the later path wins (paths select distinct leaves).
+        // A whole-subtree selection supersedes a narrower one (e.g. `.a,.a.b`).
+        (Slice::Leaf(v), _) | (_, Slice::Leaf(v)) => Slice::Leaf(v),
+        // Mismatched containers cannot arise from one root; keep the later one.
         (_, b) => b,
     }
 }

@@ -52,6 +52,17 @@ fn merges_two_iter_fields_element_wise() {
 }
 
 #[test]
+fn distinct_indexed_paths_keep_their_positions() {
+    // Two different source elements must not be zipped into one.
+    let out = run(&req(
+        r#"{"items":[{"a":1},{"b":2}]}"#,
+        ".items[0].a,.items[1].b",
+    ))
+    .unwrap();
+    assert_eq!(out, r#"{"items":[{"a":1},{"b":2}]}"#);
+}
+
+#[test]
 fn root_path_is_identity() {
     let out = run(&req(r#"{"b":2,"a":1}"#, ".")).unwrap();
     assert_eq!(out, r#"{"a":1,"b":2}"#);
@@ -162,6 +173,14 @@ fn root_array_streams_to_ndjson() {
 }
 
 // ---- format detection and conversion ------------------------------------
+
+#[test]
+fn auto_detects_ndjson_from_stdin() {
+    // No --from: multi-line all-JSON input must be read as NDJSON and, since
+    // the input is NDJSON, default to NDJSON output.
+    let out = run(&req("{\"a\":1,\"x\":9}\n{\"a\":2,\"x\":8}\n", ".a")).unwrap();
+    assert_eq!(out, "1\n2");
+}
 
 #[test]
 fn detects_and_reads_yaml() {

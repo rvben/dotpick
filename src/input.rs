@@ -9,30 +9,54 @@ use crate::error::DotpickError;
 use serde_json::Value;
 
 /// Parse `input` into records, detecting the format when `forced` is `None`.
-pub fn parse(input: &str, forced: Option<InputFormat>) -> Result<Vec<Value>, DotpickError> {
+/// Returns the records alongside the resolved format (so callers can default
+/// the output format to NDJSON when the input was NDJSON).
+pub fn parse(
+    input: &str,
+    forced: Option<InputFormat>,
+) -> Result<(Vec<Value>, InputFormat), DotpickError> {
     let format = forced.unwrap_or_else(|| detect(input));
-    match format {
-        InputFormat::Json => Ok(vec![parse_json(input)?]),
-        InputFormat::Yaml => Ok(vec![parse_yaml(input)?]),
-        InputFormat::Toml => Ok(vec![parse_toml(input)?]),
-        InputFormat::Ndjson => parse_ndjson(input),
-    }
+    let records = match format {
+        InputFormat::Json => vec![parse_json(input)?],
+        InputFormat::Yaml => vec![parse_yaml(input)?],
+        InputFormat::Toml => vec![parse_toml(input)?],
+        InputFormat::Ndjson => parse_ndjson(input)?,
+    };
+    Ok((records, format))
 }
 
 /// Best-effort format detection by trial parsing.
 ///
-/// JSON is attempted first (it is a strict subset of YAML), then TOML (whose
-/// `key = value` lines YAML would silently misread as scalars), then YAML as
-/// the permissive fallback. Ambiguous inputs should be disambiguated with
-/// `--from`; the CLI sets it from a file extension when reading a file.
+/// Order: a single JSON document first (a strict subset of YAML); then NDJSON
+/// (multiple lines that each parse as JSON); then TOML (whose `key = value`
+/// lines YAML would silently misread as scalars); then YAML as the permissive
+/// fallback. Ambiguous inputs should be disambiguated with `--from`; the CLI
+/// also sets it from a file extension when reading a file.
 fn detect(input: &str) -> InputFormat {
     if serde_json::from_str::<Value>(input).is_ok() {
         InputFormat::Json
+    } else if is_ndjson(input) {
+        InputFormat::Ndjson
     } else if toml::from_str::<Value>(input).is_ok() {
         InputFormat::Toml
     } else {
         InputFormat::Yaml
     }
+}
+
+/// True when the input is two or more non-empty lines that each parse as JSON.
+/// A single JSON document is already handled as JSON, so NDJSON needs >= 2 lines
+/// to be unambiguous.
+fn is_ndjson(input: &str) -> bool {
+    let mut lines = input.lines().filter(|l| !l.trim().is_empty());
+    let mut count = 0usize;
+    for line in &mut lines {
+        if serde_json::from_str::<Value>(line).is_err() {
+            return false;
+        }
+        count += 1;
+    }
+    count >= 2
 }
 
 fn parse_json(input: &str) -> Result<Value, DotpickError> {

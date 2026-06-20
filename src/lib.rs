@@ -54,8 +54,8 @@ pub struct Request {
 /// Run a projection and return the rendered output (without a trailing newline).
 pub fn run(req: &Request) -> Result<String, DotpickError> {
     let paths = path::parse_paths(&req.paths)?;
-    let records = input::parse(&req.input, req.from)?;
-    let format = req.to.unwrap_or_else(|| default_output(req.from));
+    let (records, in_format) = input::parse(&req.input, req.from)?;
+    let format = req.to.unwrap_or_else(|| default_output(in_format));
 
     match format {
         OutputFormat::Raw => return output::render_raw(&records, &paths, req.allow_missing),
@@ -75,9 +75,9 @@ pub fn run(req: &Request) -> Result<String, DotpickError> {
     output::render(&docs, format, req.pretty)
 }
 
-fn default_output(from: Option<InputFormat>) -> OutputFormat {
+fn default_output(from: InputFormat) -> OutputFormat {
     match from {
-        Some(InputFormat::Ndjson) => OutputFormat::Ndjson,
+        InputFormat::Ndjson => OutputFormat::Ndjson,
         _ => OutputFormat::Json,
     }
 }
