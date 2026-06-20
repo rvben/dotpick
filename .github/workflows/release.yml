@@ -27,6 +27,9 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Avoid the intermittent "HTTP2 framing layer" curl errors when cargo fetches
+  # from crates.io on GitHub-hosted runners.
+  CARGO_HTTP_MULTIPLEXING: "false"
 
 jobs:
   test:
