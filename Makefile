@@ -1,4 +1,4 @@
-.PHONY: build release test lint fmt check schema update-deps clean install release-patch release-minor release-major
+.PHONY: build release test lint fmt check conformance clean install release-patch release-minor release-major update-deps
 
 build:
 	cargo build
@@ -16,14 +16,13 @@ lint:
 fmt:
 	cargo fmt
 
-check: lint test schema
+check: lint test
 
-# Verify the agent contract is emitted and is valid JSON.
-schema: build
-	./target/debug/dotpick schema | python3 -c 'import json,sys; json.load(sys.stdin)' && echo "schema OK"
-
-update-deps:
-	upd --apply --max-bump minor --lang rust,actions
+# Score the binary against The CLI Spec (clispec.dev). Requires `clispec`
+# (cargo install clispec). The schema's conformance to clispec v0.2 is also
+# verified hermetically by `make test`.
+conformance: release
+	clispec score ./target/release/dotpick
 
 clean:
 	cargo clean
@@ -31,6 +30,9 @@ clean:
 install: release
 	mkdir -p ~/.local/bin
 	cp target/release/dotpick ~/.local/bin/dotpick
+
+update-deps:
+	upd --apply --max-bump minor --lang rust,actions
 
 release-patch:
 	vership bump patch
