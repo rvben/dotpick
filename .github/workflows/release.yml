@@ -53,10 +53,12 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
-          - os: macos-13
-            target: x86_64-apple-darwin
           - os: macos-14
             target: aarch64-apple-darwin
+          # Cross-compiled on Apple Silicon (Intel mac runners are scarce).
+          - os: macos-14
+            target: x86_64-apple-darwin
+            cross: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +80,8 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Verify binary
+        # Skip for cross-compiled targets the runner cannot execute.
+        if: ${{ !matrix.cross }}
         run: ./target/${{ matrix.target }}/release/dotpick --version
 
       - name: Create release archive
