@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/rvben/dotpick/actions/workflows/ci.yml/badge.svg)](https://github.com/rvben/dotpick/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/dotpick.svg)](https://crates.io/crates/dotpick)
-[![clispec](https://img.shields.io/badge/clispec-v0.2-blue)](https://clispec.dev)
+[![clispec compliant](https://img.shields.io/badge/clispec-compliant-3b82f6)](https://clispec.dev)
 
 Token-minimal field projection over JSON, YAML, TOML and NDJSON. Select fields
 by dotpath and emit the smallest valid slice. The anti-jq for agents and
