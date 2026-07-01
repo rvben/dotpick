@@ -81,7 +81,8 @@ pub fn contract() -> Value {
                         "required": false,
                         "description": "Input file; omit to read stdin."
                     }
-                ]
+                ],
+                "example": {"args": ["."], "stdin": "{\"x\":1}"}
             },
             {
                 "name": "completions",
