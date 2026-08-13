@@ -1,12 +1,12 @@
-//! The clispec v0.2 contract emitted by `dotpick schema`.
+//! The clispec v0.3 candidate contract emitted by `dotpick schema`.
 //!
-//! Conforms to <https://clispec.dev/schema/v0.2.json> (validated by a test
-//! against the vendored copy in `schemas/clispec-v0.2.json`).
+//! Conforms to <https://clispec.dev/schema/v0.3.json> (validated by a test
+//! against the vendored copy in `schemas/clispec-v0.3.json`).
 
 use serde_json::{Value, json};
 
 /// The version of The CLI Spec this document conforms to.
-pub const CLISPEC_VERSION: &str = "0.2";
+pub const CLISPEC_VERSION: &str = "0.3";
 
 /// Build the clispec contract as a JSON value.
 pub fn contract() -> Value {
@@ -15,9 +15,11 @@ pub fn contract() -> Value {
         "name": "dotpick",
         "version": env!("CARGO_PKG_VERSION"),
         "description": env!("CARGO_PKG_DESCRIPTION"),
+        "output": {"tty": "json", "piped": "json"},
         "global_args": [
             {
                 "name": "--output",
+                "short": "-o",
                 "type": "string",
                 "enum": ["auto", "json", "yaml", "toml", "ndjson", "raw"],
                 "default": "auto",
@@ -52,21 +54,19 @@ pub fn contract() -> Value {
             {
                 "name": "schema",
                 "description": "Print this clispec contract as JSON.",
+                "effects": "read_only",
                 "mutating": false,
+                "cardinality": "single",
                 "stability": "stable",
-                "output_fields": [
-                    {"name": "clispec", "type": "string", "description": "The CLI Spec version this document conforms to."},
-                    {"name": "name", "type": "string", "description": "The tool's invocation name."},
-                    {"name": "version", "type": "string", "description": "The tool's version."},
-                    {"name": "global_args", "type": "array", "description": "Flags accepted by the projection command."},
-                    {"name": "commands", "type": "array", "description": "The commands the tool exposes."},
-                    {"name": "errors", "type": "array", "description": "The finite set of error kinds with exit codes."}
-                ]
+                "stdout_schema": {"$ref": "https://clispec.dev/schema/v0.3.json"}
             },
             {
                 "name": "project",
                 "description": "Project the comma-separated dotpaths from a file or stdin. Also the default command, invoked as `dotpick <paths> [file]`. Output mirrors the selected paths, so it has no fixed shape; object keys are emitted in sorted order.",
+                "effects": "read_only",
                 "mutating": false,
+                "cardinality": "single",
+                "stdout_schema": {},
                 "stability": "stable",
                 "args": [
                     {
@@ -87,7 +87,10 @@ pub fn contract() -> Value {
             {
                 "name": "completions",
                 "description": "Generate a shell completion script.",
+                "effects": "read_only",
                 "mutating": false,
+                "output_kind": "opaque",
+                "media_type": "text/plain",
                 "stability": "stable",
                 "args": [
                     {

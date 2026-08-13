@@ -1,10 +1,10 @@
-//! `dotpick schema` must validate against the published clispec v0.2 JSON
-//! Schema (vendored at schemas/clispec-v0.2.json).
+//! `dotpick schema` must validate against the published clispec v0.3 JSON
+//! Schema (vendored at schemas/clispec-v0.3.json).
 
 #[test]
-fn schema_conforms_to_clispec_v0_2() {
+fn schema_conforms_to_clispec_v0_3() {
     let schema: serde_json::Value =
-        serde_json::from_str(include_str!("../schemas/clispec-v0.2.json"))
+        serde_json::from_str(include_str!("../schemas/clispec-v0.3.json"))
             .expect("vendored clispec schema is valid JSON");
 
     let instance = dotpick::schema::contract();
@@ -16,7 +16,7 @@ fn schema_conforms_to_clispec_v0_2() {
             .map(|e| format!("{} at {}", e, e.instance_path()))
             .collect();
         panic!(
-            "dotpick schema does not conform to clispec v0.2:\n{}",
+            "dotpick schema does not conform to clispec v0.3:\n{}",
             errors.join("\n")
         );
     }
@@ -25,7 +25,7 @@ fn schema_conforms_to_clispec_v0_2() {
 #[test]
 fn schema_declares_required_clispec_fields() {
     let v = dotpick::schema::contract();
-    assert_eq!(v["clispec"], "0.2");
+    assert_eq!(v["clispec"], "0.3");
     assert_eq!(v["name"], "dotpick");
     assert!(v["commands"].as_array().is_some_and(|c| !c.is_empty()));
     assert!(v["global_args"].as_array().is_some_and(|g| !g.is_empty()));
@@ -38,5 +38,5 @@ fn schema_declares_required_clispec_fields() {
         .iter()
         .find(|c| c["name"] == "project")
         .expect("project command present");
-    assert_eq!(project["mutating"], false);
+    assert_eq!(project["effects"], "read_only");
 }

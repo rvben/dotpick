@@ -79,11 +79,11 @@ fn project_subcommand_matches_the_bare_default() {
 }
 
 #[test]
-fn schema_subcommand_is_clispec_v0_2() {
+fn schema_subcommand_is_clispec_v0_3() {
     let out = run(&["schema"], "");
     assert_eq!(out.code, 0);
     let v: serde_json::Value = serde_json::from_str(&out.stdout).expect("valid JSON");
-    assert_eq!(v["clispec"], "0.2");
+    assert_eq!(v["clispec"], "0.3");
     assert_eq!(v["name"], "dotpick");
 }
 

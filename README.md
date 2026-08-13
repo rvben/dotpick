@@ -109,7 +109,7 @@ Pass `--allow-missing` to skip absent paths instead.
 
 dotpick follows [The CLI Spec](https://clispec.dev): data on stdout, structured
 error envelopes on the last line of stderr, and a `schema` subcommand whose
-output validates against `clispec.dev/schema/v0.2.json` (checked by the test
+output validates against `clispec.dev/schema/v0.3.json` (checked by the test
 suite). Every command is marked read-only (`mutating: false`).
 
 ```sh
