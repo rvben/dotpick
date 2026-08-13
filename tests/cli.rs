@@ -1,7 +1,7 @@
 //! End-to-end tests of the compiled binary: stdin, files, subcommands, the
 //! clispec error envelope, and the process exit-code contract.
 
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::process::{Command, Stdio};
 
 const BIN: &str = env!("CARGO_BIN_EXE_dotpick");
@@ -21,12 +21,14 @@ fn run(args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn dotpick");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    let write_result = child.stdin.take().unwrap().write_all(stdin.as_bytes());
+    if let Err(error) = write_result {
+        assert_eq!(
+            error.kind(),
+            ErrorKind::BrokenPipe,
+            "failed to write child stdin: {error}"
+        );
+    }
     let out = child.wait_with_output().unwrap();
     Output {
         code: out.status.code().unwrap(),

@@ -1,6 +1,6 @@
 [package]
 name = "dotpick"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.90"
 description = "Token-minimal field projection over JSON, YAML, TOML and NDJSON. Select fields by dotpath, emit the smallest valid slice. The anti-jq for agents."
