@@ -21,13 +21,13 @@ name = "dotpick"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
-clap_complete = "4.6.5"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
+clap = { version = "4.6.6", features = ["derive"] }
+clap_complete = "4.6.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 serde_norway = "0.9.42"
-thiserror = "2.0.18"
-toml = "1.1.2"
+thiserror = "2.0.20"
+toml = "1.1.4+spec-1.1.0"
 
 [profile.release]
 strip = true
@@ -35,4 +35,4 @@ lto = true
 codegen-units = 1
 
 [dev-dependencies]
-jsonschema = { version = "0.46.5", default-features = false }
+jsonschema = { version = "0.51.0", default-features = false }
