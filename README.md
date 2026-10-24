@@ -23,6 +23,14 @@ kubectl get pods -o json | dotpick '.items[].metadata.name' -o raw
 
 ## Install
 
+### Homebrew
+
+```sh
+brew install rvben/tap/dotpick
+```
+
+### Other installation methods
+
 ```sh
 cargo install dotpick
 ```
